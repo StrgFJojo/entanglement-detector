@@ -220,6 +220,9 @@ def run(net, image_provider, height_size=256, cpu=True, track=1, smooth=1, show_
 
 
 if __name__ == '__main__':
+    ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+    checkpoint_path = os.path.join(ROOT_DIR, 'models', 'checkpoint_iter_370000.pth')
+
     parser = argparse.ArgumentParser(
         description='')
     parser.add_argument('--height-size', type=int, default=256, help='network input layer height size')
@@ -232,13 +235,13 @@ if __name__ == '__main__':
     parser.add_argument('--save-outputs', default=False)
     parser.add_argument('--synch-style', type=str, default='2pax_90', help='type of synchrony metric')
     parser.add_argument('--full-stats-mode', type=int, default=0, help='get all synch styles')
+    parser.add_argument('--checkpoint-path', type=str, default=checkpoint_path)
     args = parser.parse_args()
 
     if args.video == '' and args.images == '':
         raise ValueError('Either --video or --image has to be provided')
 
-    ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
-    checkpoint_path = os.path.join(ROOT_DIR, '0_resources', 'checkpoint_iter_370000.pth')
+
     net = PoseEstimationWithMobileNet()
     checkpoint = torch.load(checkpoint_path, map_location='cpu')
     load_state(net, checkpoint)
