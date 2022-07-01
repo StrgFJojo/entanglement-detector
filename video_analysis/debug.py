@@ -1,3 +1,0 @@
-import main_archived
-
-print(indices_of_two_highest_scores)

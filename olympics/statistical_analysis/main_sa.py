@@ -1,13 +1,12 @@
 import os
-from video_analysis import pose_estimation
+from modules import pose_estimation_openpose
 import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr
-from matplotlib import pyplot
 
 col_names = list((pose_estimation.keypointsMapping[pose_estimation.POSE_PAIRS[t][0]] + " to " +
-                      pose_estimation.keypointsMapping[pose_estimation.POSE_PAIRS[t][1]]) for t in
-                     range(len(pose_estimation.POSE_PAIRS)))
+                  pose_estimation.keypointsMapping[pose_estimation.POSE_PAIRS[t][1]]) for t in
+                 range(len(pose_estimation.POSE_PAIRS)))
 col_names = col_names[:-2]
 # restore pandas dataframe that was squished into a csv cell as string
 def restore_df(str_in):
@@ -36,8 +35,8 @@ def restore_df(str_in):
     return pd.DataFrame(out)
 
 
-# input: scenes_annotated_01.csv from video_analysis/main_va.py
-ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+# input: scenes_annotated_01.csv from detector/main_va.py
+ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '../..'))
 scenes_annotated_path = os.path.join(ROOT_DIR, '0_resources', 'scenes_annotated_02.csv')
 # avg distance and avg synchronization per performance
 

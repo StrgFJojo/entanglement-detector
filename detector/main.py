@@ -6,12 +6,13 @@ import numpy as np
 import torch
 import math
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime
 from models.with_mobilenet import PoseEstimationWithMobileNet
 from modules.keypoints import extract_keypoints, group_keypoints
 from modules.load_state import load_state
-from modules.pose import Pose, track_poses
-from video_analysis import distance_measure, pose_estimation,synchrony_measure,height_measure,visualization,input_reader
+from modules.pose_estimation_lightweight import Pose, track_poses
+from detector import distance_measure, synchrony_measure,height_measure,visualization,input_reader
+from modules import pose_estimation_openpose
 
 warnings.filterwarnings('ignore')
 
@@ -142,26 +143,11 @@ def run(net, image_provider, height_size=256, cpu=True, track=1, smooth=1, show_
             person_indices = (-scores).argsort()[:pax]
 
             synch_degree = synchrony_measure.get_synchrony_flexpax(pose_entries, person_indices,
-                                                                   pose_estimation.POSE_PAIRS, all_keypoints,
+                                                                   pose_estimation_openpose.POSE_PAIRS, all_keypoints,
                                                                    synch_style)
             distance_midhip = distance_measure.get_distance_multipax(pose_entries, all_keypoints, person_indices)
             heights = height_measure.get_height_multipax(pose_entries, all_keypoints, person_indices)
 
-            """
-            if synch_style in ['2pax_90', '2pax_180', '2pax_90_mirrored', '2pax_180_mirrored']:
-                synch_degree = synchrony_measure.get_synchrony(person_indices, pose_entries,
-                                                               pose_estimation.POSE_PAIRS, all_keypoints, synch_style)
-                distance_midhip = distance_measure.get_distance(pose_entries, person_indices,
-                                                                all_keypoints, synch_style)
-                heights = height_measure.get_height(person_indices, pose_entries, all_keypoints)
-            else:
-                if synch_style == 'allpax':
-                    pax = len(pose_entries)
-                person_indices = (-scores).argsort()[:pax]
-                synch_degree = synchrony_measure.get_synchrony_flexpax(pose_entries, person_indices, pose_estimation.POSE_PAIRS, all_keypoints, synch_style)
-                distance_midhip = distance_measure.get_distance_multipax(pose_entries, all_keypoints)
-                heights = height_measure.get_height_multipax(pose_entries, all_keypoints)
-            """
             if -1 in heights:
                 normalized_distance = -1
             else:
@@ -192,9 +178,9 @@ def run(net, image_provider, height_size=256, cpu=True, track=1, smooth=1, show_
                                 cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 0, 255))
 
             img = visualization.partly_overlay_final(pose_entries, person_indices,
-                                                            pose_estimation.POSE_PAIRS,
-                                                            all_keypoints, synch_degree, distance_midhip, img,
-                                                            synch_style)
+                                                     pose_estimation_openpose.POSE_PAIRS,
+                                                     all_keypoints, synch_degree, distance_midhip, img,
+                                                     synch_style)
 
 
             # if flag:
@@ -219,9 +205,9 @@ def run(net, image_provider, height_size=256, cpu=True, track=1, smooth=1, show_
         synchrony_totalvideo = synchrony_totalvideo[1:][:]
         normalized_distances_totalvideo = normalized_distances_totalvideo[1:][:]
 
-        col_names = list(("synchrony_" + pose_estimation.keypointsMapping[pose_estimation.POSE_PAIRS[t][0]] + "_to_" +
-                      pose_estimation.keypointsMapping[pose_estimation.POSE_PAIRS[t][1]]) for t in
-                     range(len(pose_estimation.POSE_PAIRS)))
+        col_names = list(("synchrony_" + pose_estimation_openpose.keypointsMapping[pose_estimation_openpose.POSE_PAIRS[t][0]] + "_to_" +
+                          pose_estimation_openpose.keypointsMapping[pose_estimation_openpose.POSE_PAIRS[t][1]]) for t in
+                         range(len(pose_estimation_openpose.POSE_PAIRS)))
         col_names = col_names[:-2]
         df = pd.DataFrame(columns=col_names)
         df['normalized_distance'] = pd.Series(normalized_distances_totalvideo)

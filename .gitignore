@@ -1,7 +1,9 @@
 .idea/
 .DS_Store
-0_resources
-outputs
+olympics
+models/checkpoint_iter_370000.pth
+models/pose_deploy_linevec.prototxt
+models/pose_iter_440000.caffemodel
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

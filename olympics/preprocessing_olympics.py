@@ -1,6 +1,3 @@
-import numpy as np
-
-import run_live
 import input_reader
 from models.with_mobilenet import PoseEstimationWithMobileNet
 from modules.load_state import load_state
@@ -9,12 +6,11 @@ import os
 from tqdm import tqdm
 import cv2
 import pandas as pd
-import pickle
 
 # OpenPose lightweight to OpenPose
 # all_keypoints --> keypoints_list
 # pose_entries --> personwise_keypoints
-from video_analysis import pose_estimation
+from modules import pose_estimation_openpose
 
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
@@ -70,8 +66,8 @@ for index, row in tqdm(scenes_annotated.iterrows(), total=scenes_annotated.shape
 
 # create dataframe
 col_names = list(("synchrony_" + pose_estimation.keypointsMapping[pose_estimation.POSE_PAIRS[t][0]] + "_to_" +
-                      pose_estimation.keypointsMapping[pose_estimation.POSE_PAIRS[t][1]]) for t in
-                     range(len(pose_estimation.POSE_PAIRS)))
+                  pose_estimation.keypointsMapping[pose_estimation.POSE_PAIRS[t][1]]) for t in
+                 range(len(pose_estimation.POSE_PAIRS)))
 col_names = col_names[:-2]
 
 final_df = scenes_annotated.copy()
