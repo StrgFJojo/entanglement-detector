@@ -264,24 +264,14 @@ def partly_overlay_final(personwiseKeypoints, person_indices, POSE_PAIRS, keypoi
 
     result = cv2.addWeighted(overlay, 0.70, frameClone, 1 - 0.70, 0)
 
-    synch_temp = []
-    for i in [2, 3, 4, 5, 10, 11, 7, 8]:
-        if synch_degree[i] != -1:
-            synch_temp.append(synch_degree[i])
+    synch_temp_limbs = [x for x in np.array(synch_degree)[[2, 3, 4, 5, 10, 11, 7, 8]] if x != -1]
+    synch_temp_face = [x for x in np.array(synch_degree)[[12, 13, 14, 15, 16]] if x != -1]
 
-    if len(synch_temp) == 0 and distance == -1:
-        dash = overlay_dashboard("Avg limb synch: na --- Dist: na", cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
-    elif len(synch_temp) == 0 and distance != -1:
-        dash = overlay_dashboard(str("Avg limb synch: na --- Dist: %.2f px" % distance), cv2.FONT_HERSHEY_SIMPLEX, 0.4,
-                                 1)
-    elif len(synch_temp) != 0 and distance == -1:
-        synch_mean = mean(synch_temp)
-        dash = overlay_dashboard(str("Avg limb synch: %.2f --- Dist: na" % synch_mean), cv2.FONT_HERSHEY_SIMPLEX, 0.4,
-                                 1)
-    else:
-        synch_mean = mean(synch_temp)
-        dash = overlay_dashboard(str("Avg limb synch: %.2f --- Dist: %.2f px" % (synch_mean, distance)),
-                                 cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
+    synch_mean_limbs = mean(synch_temp_limbs) if len(synch_temp_limbs) != 0 else False
+    synch_mean_face = mean(synch_temp_face) if len(synch_temp_face) != 0 else False
+
+    dash = overlay_dashboard(f"Avg limb synch: {synch_mean_limbs or np.nan:.2f}; Avg face synch: {synch_mean_face or np.nan:.2f}; Dist: {np.nan if distance == -1 else distance:.2f} px.", cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
+
 
     x_offset = y_offset = 10
     overlay[y_offset:y_offset + dash.shape[0], x_offset:x_offset + dash.shape[1]] = dash

@@ -107,7 +107,10 @@ def get_synchrony_flexpax(pose_entries, person_indices, POSE_PAIRS, all_keypoint
             # personwiseKeypoints[person][pulling pair tuple from list]
             # eg. [0][POSE_PAIRS[0]] -> [0][1,2] first person, first pose_pair which is [1,2] or (neck,r-shoulder)
             # personwiseKeypoints[0][1,2] = [2,4] -> keypoints for (neck,r-shoulder) of 1st person have ids 2 and 4
-            index = pose_entries[person_indices[i]][np.array(POSE_PAIRS[n])]
+            if synch_style in ['2pax_90_mirrored', '2pax_180_mirrored'] and i == 1:
+                index = pose_entries[person_indices[i]][np.array(POSE_PAIRS[idx_mirror_pose_pair[n]])]
+            else:
+                index = pose_entries[person_indices[i]][np.array(POSE_PAIRS[n])]
             if -1 in index:
                 # one of the pairs' keypoints is not available
                 unit_vectors[i] = [-1, -1]
