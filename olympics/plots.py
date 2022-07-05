@@ -1,6 +1,4 @@
 """
-
-"""
 # keep synch values for arms and legs o
 # remove missing values
 np.savetxt('synch.csv', synchrony_totalvideo, delimiter=',')
@@ -25,7 +23,7 @@ plt.show()
 
 for i in range(1, synchrony_totalvideo.shape[1]):
     plt.plot([row[i] for row in synchrony_totalvideo])
-"""
+
 # replace missing values with mean values
 synchrony_totalvideo_optimized = data_optimization.fill_missing_values_synchrony(synchrony_totalvideo)
 
@@ -54,11 +52,11 @@ plt.legend(tuple(((pose_estimation.keypointsMapping[pose_estimation.POSE_PAIRS[t
                    " to " + pose_estimation.keypointsMapping[pose_estimation.POSE_PAIRS[t][1]])
                   for t in (2, 3, 4, 5, 7, 8, 10, 11))))
 
-"""""
+
 # plot specific body part synchrony
 plt.plot(synchrony_totalvideo_optimized.T[0], synchrony_totalvideo_optimized.T[1])
 plt.legend(tuple([pose_estimation.keypointsMapping[pose_estimation.POSE_PAIRS[0][0]]+
                   " to "+pose_estimation.keypointsMapping[pose_estimation.POSE_PAIRS[0][1]]]))
 plt.show()
+
 """
-plt.show()

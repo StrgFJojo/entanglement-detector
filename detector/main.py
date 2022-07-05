@@ -66,14 +66,24 @@ def infer_fast(net, img, net_input_height_size, stride, upsample_ratio, cpu,
     return heatmaps, pafs, scale, pad
 
 
-def run(net, image_provider, height_size=256, cpu=True, track=1, smooth=1, show_livestream=True, save_outputs=False,
-        synch_style='2pax_90', full_stats_mode = 0):
+def run(net, image_provider, height_size=256, cpu=True, track=1, smooth=1, show_livestream=True, save_livestream=False,
+        save_outputs=False, synch_style='2pax_90', full_stats_mode = 0):
 
     if full_stats_mode:
         show_livestream = False
         save_outputs = True
         synch_style_list = ['2pax_90', '2pax_180', '2pax_90_mirrored', '2pax_180_mirrored', '2']
         print("Running in full stats mode. Livestream switched off per default. Outputs saved to CSV.")
+
+    if save_livestream:
+        iterable = iter(image_provider)
+        ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+        output_video_path = os.path.join(ROOT_DIR, 'olympics/per_scene_entanglement_visualized', 'output.avi')
+        frame_width = int(iterable.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(iterable.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = int(iterable.cap.get(cv2.CAP_PROP_FPS))
+        fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+        writer = cv2.VideoWriter(output_video_path, fourcc, fps, (frame_width, frame_height))
 
     quit_flag = False
     net = net.eval()
@@ -164,7 +174,7 @@ def run(net, image_provider, height_size=256, cpu=True, track=1, smooth=1, show_
         if track:
             track_poses(previous_poses, current_poses, smooth=smooth)
             previous_poses = current_poses
-        if show_livestream:
+        if show_livestream or save_livestream:
             #for idx, pose in enumerate(current_poses):
             #    pose.draw(img, synch_degree,person_indices, synch_style, idx)
 
@@ -181,25 +191,28 @@ def run(net, image_provider, height_size=256, cpu=True, track=1, smooth=1, show_
                                                      pose_estimation_openpose.POSE_PAIRS,
                                                      all_keypoints, synch_degree, distance_midhip, img,
                                                      synch_style)
+            if show_livestream:
+                cv2.imshow('Synch Detector', img)
+                key = cv2.waitKey(delay)
+                if key == 27:  # esc
+                    cv2.destroyAllWindows()
+                    for i in range(1, 5):
+                        cv2.waitKey(1)
+                        quit_flag = True
+                        break
+                elif key == 112:  # 'p'
+                    if delay == 1:
+                        delay = 0
+                    else:
+                        delay = 1
 
+            if save_livestream:
+                writer.write(img)
 
-            # if flag:
-            #   break
-           # print(datetime.combine(date.today(), end) - datetime.combine(date.today(), start))
-            cv2.imshow('Synch Detector', img)
-
-            key = cv2.waitKey(delay)
-            if key == 27:  # esc
-                cv2.destroyAllWindows()
-                for i in range(1, 5):
-                    cv2.waitKey(1)
-                    quit_flag = True
-                    break
-            elif key == 112:  # 'p'
-                if delay == 1:
-                    delay = 0
-                else:
-                    delay = 1
+    if show_livestream:
+        cv2.destroyAllWindows()
+    if save_livestream:
+        writer.release()
     idx += 1
     if save_outputs:
         synchrony_totalvideo = synchrony_totalvideo[1:][:]
@@ -232,6 +245,7 @@ if __name__ == '__main__':
     parser.add_argument('--track', type=int, default=1, help='track pose id in video')
     parser.add_argument('--smooth', type=int, default=1, help='smooth pose keypoints')
     parser.add_argument('--show-livestream', default=True)
+    parser.add_argument('--save-livestream', default=False)
     parser.add_argument('--save-outputs', default=False)
     parser.add_argument('--synch-style', type=str, default='2pax_90', help='type of synchrony metric')
     parser.add_argument('--full-stats-mode', type=int, default=0, help='get all synch styles')

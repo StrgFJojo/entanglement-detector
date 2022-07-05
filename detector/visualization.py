@@ -1,3 +1,5 @@
+import textwrap
+
 import numpy as np
 import cv2
 from statistics import mean
@@ -270,8 +272,12 @@ def partly_overlay_final(personwiseKeypoints, person_indices, POSE_PAIRS, keypoi
     synch_mean_limbs = mean(synch_temp_limbs) if len(synch_temp_limbs) != 0 else False
     synch_mean_face = mean(synch_temp_face) if len(synch_temp_face) != 0 else False
 
-    dash = overlay_dashboard(f"Avg limb synch: {synch_mean_limbs or np.nan:.2f}; Avg face synch: {synch_mean_face or np.nan:.2f}; Dist: {np.nan if distance == -1 else distance:.2f} px.", cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
+    #overlay_text = f"Limb synch: {synch_mean_limbs or np.nan:.1f}; Face synch: {synch_mean_face or np.nan:.1f}; Dist: {np.nan if distance == -1 else distance:.1f} px."
+    #wrapper = textwrap.TextWrapper(width=overlay.shape[1])
+    #overlay_text = wrapper.fill(text=overlay_text)
 
+    overlay_text = f"Limb synch: {synch_mean_limbs or np.nan:.1f}; Dist: {np.nan if distance == -1 else distance:.1f} px."
+    dash = overlay_dashboard(overlay_text, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
 
     x_offset = y_offset = 10
     overlay[y_offset:y_offset + dash.shape[0], x_offset:x_offset + dash.shape[1]] = dash

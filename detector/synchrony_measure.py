@@ -138,7 +138,7 @@ def get_synchrony_flexpax(pose_entries, person_indices, POSE_PAIRS, all_keypoint
                     else:
                         val = 0 + ((1 - 0) / (180 - 90)) * (deg - 90)
                 else:  # synch_style == '2pax_180'
-                    val = deg / 180
+                    val = 1 - deg / 180
                 synch_degree[n] = val  # 1 -> perfect synch, 0 -> no synch
         else:
             unit_vectors = [x for x in unit_vectors if -1 not in x]
@@ -155,7 +155,7 @@ def get_synchrony_flexpax(pose_entries, person_indices, POSE_PAIRS, all_keypoint
                 synch_degree[n] = -1
 
     if synch_style not in ['2pax_90', '2pax_180', '2pax_90_mirrored', '2pax_180_mirrored']:
-        synch_degree = [(float(x)/len(synch_degree))**0.5 if x >= 0 else -1 for x in synch_degree]
+        synch_degree = [(float(x)/len(synch_degree))**0.1 if x >= 0 else -1 for x in synch_degree]
         synch_degree = [(float(x)-min(synch_degree))/(max(synch_degree)-min(synch_degree)) if x >= 0 else -1 for x in synch_degree]
 
     return synch_degree
