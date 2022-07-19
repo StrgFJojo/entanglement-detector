@@ -9,15 +9,23 @@ def get_parameters(model, predicate):
 
 
 def get_parameters_conv(model, name):
-    return get_parameters(model, lambda m, p: isinstance(m, nn.Conv2d) and m.groups == 1 and p == name)
+    return get_parameters(
+        model,
+        lambda m, p: isinstance(m, nn.Conv2d) and m.groups == 1 and p == name,
+    )
 
 
 def get_parameters_conv_depthwise(model, name):
-    return get_parameters(model, lambda m, p: isinstance(m, nn.Conv2d)
-                                              and m.groups == m.in_channels
-                                              and m.in_channels == m.out_channels
-                                              and p == name)
+    return get_parameters(
+        model,
+        lambda m, p: isinstance(m, nn.Conv2d)
+        and m.groups == m.in_channels
+        and m.in_channels == m.out_channels
+        and p == name,
+    )
 
 
 def get_parameters_bn(model, name):
-    return get_parameters(model, lambda m, p: isinstance(m, nn.BatchNorm2d) and p == name)
+    return get_parameters(
+        model, lambda m, p: isinstance(m, nn.BatchNorm2d) and p == name
+    )

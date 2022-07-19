@@ -36,16 +36,18 @@ class OneEuroFilter:
             self.dx = 0
         else:
             self.dx = (x - self.x_previous) * self.freq
-        dx_smoothed = self.filter_dx(self.dx, get_alpha(self.freq, self.dcutoff))
+        dx_smoothed = self.filter_dx(
+            self.dx, get_alpha(self.freq, self.dcutoff)
+        )
         cutoff = self.mincutoff + self.beta * abs(dx_smoothed)
         x_filtered = self.filter_x(x, get_alpha(self.freq, cutoff))
         self.x_previous = x
         return x_filtered
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     filter = OneEuroFilter(freq=15, beta=0.1)
     for val in range(10):
-        x = val + (-1)**(val % 2)
+        x = val + (-1) ** (val % 2)
         x_filtered = filter(x)
         print(x_filtered, x)

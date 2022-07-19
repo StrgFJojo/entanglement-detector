@@ -1,5 +1,6 @@
 import cv2
 
+
 class ImageReader(object):
     def __init__(self, file_names):
         self.file_names = file_names
@@ -14,7 +15,9 @@ class ImageReader(object):
             raise StopIteration
         img = cv2.imread(self.file_names[self.idx], cv2.IMREAD_COLOR)
         if img.size == 0:
-            raise IOError('Image {} cannot be read'.format(self.file_names[self.idx]))
+            raise IOError(
+                "Image {} cannot be read".format(self.file_names[self.idx])
+            )
         self.idx = self.idx + 1
         return img
 
@@ -30,7 +33,7 @@ class VideoReader(object):
     def __iter__(self):
         self.cap = cv2.VideoCapture(self.file_name)
         if not self.cap.isOpened():
-            raise IOError('Video {} cannot be opened'.format(self.file_name))
+            raise IOError("Video {} cannot be opened".format(self.file_name))
         return self
 
     def __next__(self):
