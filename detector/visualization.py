@@ -1,366 +1,182 @@
-from statistics import mean
-
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
-idx_mirror_pose_pair = [
-    1,
-    0,
-    4,
-    5,
-    2,
-    3,
-    9,
-    10,
-    11,
-    6,
-    7,
-    8,
-    12,
-    15,
-    16,
-    13,
-    14,
-]
+from detector import pose_estimation, synchrony_detection
 
 
-def round_corner(radius, fill):
-    """Draw a round corner"""
-    corner = Image.new("RGB", (radius, radius), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(corner)
-    draw.pieslice((0, 0, radius * 2, radius * 2), 180, 270, fill=fill)
-    return corner
+class Visualizer:
+    def __init__(self):
+        self.img = None
+        self.poses = None
+        self.relevant_poses = None
+        self.synchrony = None
+        self.synch_metric = None
+        self.distance = None
 
+    def setup(
+        self, img, poses, relevant_poses, synchrony, synch_style, distance
+    ):
+        self.img = img
+        self.poses = poses
+        self.relevant_poses = relevant_poses
+        self.synchrony = synchrony
+        self.synch_metric = synch_style
+        self.distance = distance
 
-def round_rectangle(size, radius, fill):
-    """Draw a rounded rectangle"""
-    width, height = size
-    rectangle = Image.new("RGB", size, fill)
-    corner = round_corner(radius, fill)
-    rectangle.paste(corner, (0, 0))
-    rectangle.paste(
-        corner.rotate(90), (0, height - radius)
-    )  # Rotate the corner and paste it
-    rectangle.paste(corner.rotate(180), (width - radius, height - radius))
-    rectangle.paste(corner.rotate(270), (width - radius, 0))
-    return rectangle
+    def draw_bounding_boxes(self, track):
+        for pose in self.poses:
+            cv2.rectangle(
+                self.img,
+                (pose.bbox[0], pose.bbox[1]),
+                (pose.bbox[0] + pose.bbox[2], pose.bbox[1] + pose.bbox[3]),
+                (0, 255, 0),
+            )
+            if track:
+                cv2.putText(
+                    self.img,
+                    "id: {}".format(pose.id),
+                    (pose.bbox[0], pose.bbox[1] - 16),
+                    cv2.FONT_HERSHEY_COMPLEX,
+                    0.5,
+                    (0, 0, 255),
+                )
 
+    def define_skeleton_color(self, pose, key, value):
+        # condition 1
+        bodypart_synch_score_available = value != -1
+        # condition 2
+        color_should_be_mirrored = (
+            self.synch_metric in synchrony_detection.synch_styles_mirrored
+            and pose == self.relevant_poses[1]
+        )
 
-def overlay_dashboard(text, font, font_scale, font_thickness):
-    # get boundary of this text
-    textsize = cv2.getTextSize(text, font, 1, 2)[0]
-    background = round_rectangle((textsize[0], textsize[1] * 2), 10, "white")
-    dash = np.array(background)
-    # Convert RGB to BGR
-    dash = dash[:, :, ::-1].copy()
-    # get coords based on boundary
-    textX = (dash.shape[1] - textsize[0]) / 2
-    textY = (dash.shape[0] + textsize[1]) / 2
-
-    # add text centered on image
-    cv2.putText(dash, text, (int(textX), int(textY)), font, 1, (0, 0, 0), 2)
-
-    return dash
-
-
-def full_skeleton_w_synchdegree(
-    personwiseKeypoints, POSE_PAIRS, keypoints_list, synch_degree, frameClone
-):
-    for body_part_idx in range(17):
-        # go over each person
-        for person_idx in range(len(personwiseKeypoints)):
-            # this may plot skeletons looking like one person
-            # but actually being two or more
-            # personwiseKeypoints[person][pulling pair tuple from list]
-            # eg. [0][POSE_PAIRS[0]] -> [0][1,2] first person,
-            # first pose_pair which is [1,2] or (neck,r-shoulder)
-            # personwiseKeypoints[0][1,2] = [2,4] ->
-            # keypoints for (neck,r-shoulder) of 1st person have ids 2 and 4
-            index2 = personwiseKeypoints[person_idx][
-                np.array(POSE_PAIRS[body_part_idx])
+        if not bodypart_synch_score_available:
+            color = [0, 0, 0]
+        elif color_should_be_mirrored:
+            mirror_key = synchrony_detection.get_mirror_key(key)
+            color = [
+                0,
+                min(255, 2 * 255 * self.synchrony.get(mirror_key)),
+                min(255, 2 * 255 * (1 - self.synchrony.get(mirror_key))),
             ]
-            if -1 in index2:
-                # one of the pairs' keypoints is not available
-                continue
-            # look up coordinates for keypoints
-            B = np.int32(keypoints_list[index2.astype(int), 0])
-            A = np.int32(keypoints_list[index2.astype(int), 1])
+        else:
+            color = [
+                0,
+                min(255, 2 * 255 * value),
+                min(255, 2 * 255 * (1 - value)),
+            ]
+        return color
 
-            if synch_degree[body_part_idx] == -1:
-                color = [0, 0, 0]
-            else:
-                color = [
-                    0,
-                    min(255, 2 * 255 * (synch_degree[body_part_idx])),
-                    min(255, 2 * 255 * (1 - synch_degree[body_part_idx])),
+    def skeleton_overlay(self):
+        skeleton_keypoint_pairs = (
+            pose_estimation.PoseEstimator.skeleton_keypoint_pairs
+        )
+        for pose in self.poses:
+            colors = []
+            if self.relevant_poses is None or pose not in self.relevant_poses:
+                colors = [
+                    [0, 0, 0] for _ in range(len(skeleton_keypoint_pairs))
                 ]
-            cv2.line(
-                frameClone, (B[0], A[0]), (B[1], A[1]), color, 2, cv2.LINE_AA
-            )
-    return frameClone
+            else:
+                for key, value in self.synchrony.items():
+                    color = self.define_skeleton_color(pose, value)
+                    colors.append(color)
+            pose.draw(self.img, colors)
 
-
-def partly_overlay(
-    personwiseKeypoints, POSE_PAIRS, keypoints_list, synch_degree, frameClone
-):
-    overlay = frameClone.copy()
-    synch_temp = []
-    for body_part_idx in [2, 3, 4, 5, 10, 11, 7, 8]:
-        if synch_degree[body_part_idx] != -1:
-            synch_temp.append(synch_degree[body_part_idx])
-    if len(synch_temp) == 0:
-        dash = overlay_dashboard(
-            "Avg limb synch: na", cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1
-        )
-    else:
-        synch_mean = mean(synch_temp)
-        dash = overlay_dashboard(
-            str("Avg limb synch: %.2f" % synch_mean),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.4,
-            1,
-        )
-
-    x_offset = y_offset = 50
-    overlay[
-        y_offset : y_offset + dash.shape[0],
-        x_offset : x_offset + dash.shape[1],
-    ] = dash
-    return overlay
-
-
-def partly_overlay_multipax(
-    synch_degree,
-    distance,
-    frame_clone,
-    synch_style,
-):
-    overlay = frame_clone.copy()
-    synch_temp = []
-    if synch_style == "2pax_90" or synch_style == "2pax_180":
-        for bodypart_idx in [2, 3, 4, 5, 10, 11, 7, 8]:
-            if synch_degree[bodypart_idx] != -1:
-                synch_temp.append(synch_degree[bodypart_idx])
-            # go over each person
-
-        if len(synch_temp) == 0 and distance == -1:
-            dash = overlay_dashboard(
-                "Avg limb synch: na --- Dist: na",
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.4,
-                1,
-            )
-        elif len(synch_temp) == 0 and distance != -1:
-            dash = overlay_dashboard(
-                str("Avg limb synch: na --- Dist: %.2f px" % distance),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.4,
-                1,
-            )
-        elif len(synch_temp) != 0 and distance == -1:
-            synch_mean = mean(synch_temp)
-            dash = overlay_dashboard(
-                str("Avg limb synch: %.2f --- Dist: na" % synch_mean),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.4,
-                1,
+    def text_overlay(self):
+        if len(self.poses) < 2:
+            overlay_text = f"Avg synch: {np.nan}; Dist: {np.nan} px"
+            dash = self.overlay_dashboard(
+                overlay_text, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1
             )
         else:
-            synch_mean = mean(synch_temp)
-            dash = overlay_dashboard(
-                str(
-                    "Avg limb synch: %.2f --- Dist: %.2f px"
-                    % (synch_mean, distance)
-                ),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.4,
-                1,
+            synch_vals_avail = [
+                val for val in self.synchrony.values() if val != -1
+            ]
+            synch_mean = (
+                np.array(synch_vals_avail).mean()
+                if len(synch_vals_avail) != 0
+                else False
+            )
+
+            overlay_text = (
+                f"Avg synch: {synch_mean or np.nan:.1f}; "
+                f"Dist: {np.nan if self.distance == -1 else self.distance:.1f}"
+                f" px"
+            )
+            dash = self.overlay_dashboard(
+                overlay_text, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1
             )
 
         x_offset = y_offset = 10
-        overlay[
-            y_offset : y_offset + dash.shape[0],
-            x_offset : x_offset + dash.shape[1],
-        ] = dash
-    else:
-        for bodypart_idx in [2, 3, 4, 5, 10, 11, 7, 8]:
-            if synch_degree[bodypart_idx] != -1:
-                synch_temp.append(synch_degree[bodypart_idx])
-            # go over each person
-        if len(synch_temp) == 0 and distance == -1:
-            dash = overlay_dashboard(
-                "Avg limb synch: na --- Dist: na",
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.4,
-                1,
-            )
-        elif len(synch_temp) == 0 and distance != -1:
-            dash = overlay_dashboard(
-                str("Avg limb synch: na --- Dist: %.2f px" % distance),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.4,
-                1,
-            )
-        elif len(synch_temp) != 0 and distance == -1:
-            synch_mean = mean(synch_temp)
-            dash = overlay_dashboard(
-                str("Avg limb synch: %.2f --- Dist: na" % synch_mean),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.4,
-                1,
-            )
-        else:
-            synch_mean = mean(synch_temp)
-            dash = overlay_dashboard(
-                str(
-                    "Avg limb synch: %.2f --- Dist: %.2f px"
-                    % (synch_mean, distance)
-                ),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.4,
-                1,
-            )
+        y_start = y_offset
+        y_stop = y_offset + dash.shape[0]
+        x_start = x_offset
+        x_stop = x_offset + dash.shape[1]
+        self.img[y_start:y_stop, x_start:x_stop] = dash
 
-        x_offset = y_offset = 50
-        overlay[
-            y_offset : y_offset + dash.shape[0],
-            x_offset : x_offset + dash.shape[1],
-        ] = dash
-    return overlay
+    def round_rectangle(self, size, radius, fill):
+        """Draw a rounded rectangle"""
+        width, height = size
+        rectangle = Image.new("RGB", size, fill)
+        corner = self.round_corner(radius, fill)
+        rectangle.paste(corner, (0, 0))
+        rectangle.paste(
+            corner.rotate(90), (0, height - radius)
+        )  # Rotate the corner and paste it
+        rectangle.paste(corner.rotate(180), (width - radius, height - radius))
+        rectangle.paste(corner.rotate(270), (width - radius, 0))
+        return rectangle
 
+    @staticmethod
+    def round_corner(radius, fill):
+        """Draw a round corner"""
+        corner = Image.new("RGB", (radius, radius), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(corner)
+        draw.pieslice((0, 0, radius * 2, radius * 2), 180, 270, fill=fill)
+        return corner
 
-def draw_text(
-    img,
-    text,
-    font=cv2.FONT_HERSHEY_PLAIN,
-    pos=(0, 0),
-    font_scale=3,
-    font_thickness=2,
-    text_color=(0, 255, 0),
-    text_color_bg=(0, 0, 0),
-):
-    x, y = pos
-    text_size, _ = cv2.getTextSize(text, font, font_scale, font_thickness)
-    text_w, text_h = text_size
-    cv2.rectangle(img, pos, (x + text_w, y + text_h), text_color_bg, -1)
-    cv2.putText(
+    @staticmethod
+    def draw_text(
         img,
         text,
-        (x, y + text_h + font_scale - 1),
-        font,
-        font_scale,
-        text_color,
-        font_thickness,
-    )
+        font=cv2.FONT_HERSHEY_PLAIN,
+        pos=(0, 0),
+        font_scale=3,
+        font_thickness=2,
+        text_color=(0, 255, 0),
+        text_color_bg=(0, 0, 0),
+    ):
+        x, y = pos
+        text_size, _ = cv2.getTextSize(text, font, font_scale, font_thickness)
+        text_w, text_h = text_size
+        cv2.rectangle(img, pos, (x + text_w, y + text_h), text_color_bg, -1)
+        cv2.putText(
+            img,
+            text,
+            (x, y + text_h + font_scale - 1),
+            font,
+            font_scale,
+            text_color,
+            font_thickness,
+        )
 
-    return text_size
+        return text_size
 
+    def overlay_dashboard(self, text, font, font_scale, font_thickness):
+        textsize = cv2.getTextSize(text, font, 1, 2)[0]
+        background = self.round_rectangle(
+            (textsize[0], textsize[1] * 2), 10, "white"
+        )
+        dash = np.array(background)
+        # Convert RGB to BGR
+        dash = dash[:, :, ::-1].copy()
+        # get coords based on boundary
+        textX = (dash.shape[1] - textsize[0]) / 2
+        textY = (dash.shape[0] + textsize[1]) / 2
 
-def partly_overlay_final(
-    personwiseKeypoints,
-    person_indices,
-    POSE_PAIRS,
-    keypoints_list,
-    synch_degree,
-    distance,
-    frame_clone,
-    synch_style,
-):
-    overlay = frame_clone.copy()
+        # add text centered on image
+        cv2.putText(dash, text, (int(textX), int(textY)), font, 1, (0, 0, 0), 2)
 
-    if len(personwiseKeypoints) == 0:
-        overlay_text = f"Limb synch: {np.nan}; Dist: {np.nan} px."
-        dash = overlay_dashboard(overlay_text, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
-        x_offset = y_offset = 10
-        overlay[
-            y_offset : y_offset + dash.shape[0],
-            x_offset : x_offset + dash.shape[1],
-        ] = dash
-        return overlay
-
-    for bodypart_idx in range(17):
-        for person_idx in range(len(person_indices)):
-            idx = personwiseKeypoints[person_indices[person_idx]][
-                np.array(POSE_PAIRS[bodypart_idx])
-            ]
-            if -1 in idx:
-                # one of the pairs' keypoints is not available
-                continue
-            # look up coordinates for keypoints
-            B = np.int32(keypoints_list[idx.astype(int), 0])
-            A = np.int32(keypoints_list[idx.astype(int), 1])
-
-            if (
-                person_idx in person_indices
-                and synch_degree[bodypart_idx] != -1
-                and not (
-                    synch_style in ["2pax_90_mirrored", "2pax_180_mirrored"]
-                    and person_idx == 1
-                )
-            ):
-                color = [
-                    0,
-                    min(255, 2 * 255 * (synch_degree[bodypart_idx])),
-                    min(255, 2 * 255 * (1 - synch_degree[bodypart_idx])),
-                ]
-            elif (
-                synch_style in ["2pax_90_mirrored", "2pax_180_mirrored"]
-                and person_idx == 1
-                and synch_degree[bodypart_idx] != -1
-            ):
-                color = [
-                    0,
-                    min(
-                        255,
-                        2
-                        * 255
-                        * (synch_degree[idx_mirror_pose_pair[bodypart_idx]]),
-                    ),
-                    min(
-                        255,
-                        2
-                        * 255
-                        * (
-                            1 - synch_degree[idx_mirror_pose_pair[bodypart_idx]]
-                        ),
-                    ),
-                ]
-            else:
-                color = [0, 0, 0]
-
-            cv2.line(overlay, (B[0], A[0]), (B[1], A[1]), color, 1, cv2.LINE_AA)
-    # result = cv2.addWeighted(overlay, 0.70, frame_clone, 1 - 0.70, 0)
-    synch_temp_limbs = [
-        x for x in np.array(synch_degree)[[2, 3, 4, 5, 10, 11, 7, 8]] if x != -1
-    ]
-    # synch_temp_face = [
-    #     x for x in np.array(synch_degree)[[12, 13, 14, 15, 16]] if x != -1
-    # ]
-
-    synch_mean_limbs = (
-        mean(synch_temp_limbs) if len(synch_temp_limbs) != 0 else False
-    )
-    # synch_mean_face = (
-    #     mean(synch_temp_face) if len(synch_temp_face) != 0 else False
-    # )
-
-    # overlay_text = f"Limb synch: {synch_mean_limbs or np.nan:.1f};
-    # Face synch: {synch_mean_face or np.nan:.1f};
-    # Dist: {np.nan if distance == -1 else distance:.1f} px."
-    # wrapper = textwrap.TextWrapper(width=overlay.shape[1])
-    # overlay_text = wrapper.fill(text=overlay_text)
-
-    overlay_text = (
-        f"Limb synch: {synch_mean_limbs or np.nan:.1f}; "
-        f"Dist: {np.nan if distance == -1 else distance:.1f} px."
-    )
-    dash = overlay_dashboard(overlay_text, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1)
-
-    x_offset = y_offset = 10
-    overlay[
-        y_offset : y_offset + dash.shape[0],
-        x_offset : x_offset + dash.shape[1],
-    ] = dash
-
-    return overlay
+        return dash
