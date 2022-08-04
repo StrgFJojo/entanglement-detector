@@ -4,7 +4,6 @@ import cv2
 class ImageReader(object):
     def __init__(self, file_names):
         self.file_names = file_names
-        self.output = None
         self.max_idx = len(file_names)
 
     def __iter__(self):

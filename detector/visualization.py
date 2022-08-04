@@ -1,8 +1,11 @@
+from statistics import mean
+
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
 from detector import pose_estimation, synchrony_detection
+from detector.synchrony_detection import SynchronyDetector
 
 
 class Visualizer:
@@ -47,7 +50,7 @@ class Visualizer:
         bodypart_synch_score_available = value != -1
         # condition 2
         color_should_be_mirrored = (
-            self.synch_metric in synchrony_detection.synch_styles_mirrored
+            self.synch_metric in SynchronyDetector.synch_styles_mirrored
             and pose == self.relevant_poses[1]
         )
 
@@ -80,7 +83,7 @@ class Visualizer:
                 ]
             else:
                 for key, value in self.synchrony.items():
-                    color = self.define_skeleton_color(pose, value)
+                    color = self.define_skeleton_color(pose, key, value)
                     colors.append(color)
             pose.draw(self.img, colors)
 
@@ -94,17 +97,15 @@ class Visualizer:
             synch_vals_avail = [
                 val for val in self.synchrony.values() if val != -1
             ]
+            print(self.synchrony.values())
+            print(synch_vals_avail)
             synch_mean = (
-                np.array(synch_vals_avail).mean()
-                if len(synch_vals_avail) != 0
-                else False
+                mean(synch_vals_avail) if len(synch_vals_avail) != 0 else False
             )
-
-            overlay_text = (
-                f"Avg synch: {synch_mean or np.nan:.1f}; "
-                f"Dist: {np.nan if self.distance == -1 else self.distance:.1f}"
-                f" px"
-            )
+            dist_temp = list(self.distance.values())[0]
+            text_dist = np.nan if dist_temp == -1 else f"{dist_temp:.1f}px"
+            text_synch = np.nan if synch_mean is False else f"{synch_mean:.1f}"
+            overlay_text = f"Avg synch: {text_synch}; Dist: {text_dist}"
             dash = self.overlay_dashboard(
                 overlay_text, cv2.FONT_HERSHEY_SIMPLEX, 0.4, 1
             )

@@ -145,8 +145,8 @@ class PoseEstimator:
         tensor_img = (
             torch.from_numpy(padded_img).permute(2, 0, 1).unsqueeze(0).float()
         )
-        if not self.cpu:
-            tensor_img = tensor_img.cpu()
+        if not self.cpu and torch.cuda.is_available():
+            tensor_img = tensor_img.cuda()
 
         stages_output = self.net(tensor_img)
 

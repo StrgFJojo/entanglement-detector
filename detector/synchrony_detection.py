@@ -70,6 +70,7 @@ class SynchronyDetector:
                     ] = self.vector_diff_to_synch_score(unit_vectors)
 
             synch_scores = self.normalize_synch_scores(synch_scores)
+            synch_scores = [-1 if math.isnan(x) else x for x in synch_scores]
             synch_dict = dict(zip(self.column_names, synch_scores))
             self.synchrony.append(synch_dict)
             return synch_dict
@@ -164,7 +165,7 @@ class SynchronyDetector:
                 pax = len(poses)
             else:
                 pax = int(self.synch_style)
-            relevant_poses_idx = (-conf_vals).argsort()[:pax]
+            relevant_poses_idx = (-np.array(conf_vals)).argsort()[:pax]
             relevant_poses = [
                 pose
                 for idx, pose in enumerate(poses)

@@ -51,8 +51,8 @@ def run(
     height_size = 256
     stride = 8
     upsample_ratio = 4
-    if not cpu:
-        net = net.cpu()
+    if not cpu and torch.cuda.is_available():
+        net = net.cuda()
     previous_poses = []
     track = 1
     smooth = 1

@@ -55,11 +55,10 @@ class DistanceCalculator:
 
     def normalize_distance(self, distance, heights):
         if -1 in heights or distance == -1:
-            normalized_distance = {"normalized_distance", -1}
+            normalized_distance = dict({"normalized_distance": -1})
         else:
-            normalized_distance = {
-                "normalized_distance",
-                (distance / sum(heights)),
-            }
+            normalized_distance = dict(
+                {"normalized_distance": (distance / sum(heights))}
+            )
         self.normalized_distance.append(normalized_distance)
         return normalized_distance
