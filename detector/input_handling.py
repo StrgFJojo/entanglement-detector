@@ -19,6 +19,7 @@ class ImageReader(object):
                 "Image {} cannot be read".format(self.file_names[self.idx])
             )
         self.idx = self.idx + 1
+
         return img
 
 
