@@ -3,6 +3,7 @@ import warnings
 
 import cv2
 import torch
+from tqdm import tqdm
 
 from detector import (
     distance_calculation,
@@ -17,6 +18,8 @@ from models.with_mobilenet import PoseEstimationWithMobileNet
 from modules.load_state import load_state
 
 warnings.filterwarnings("ignore")
+
+
 # jojo 1.0 incoming
 
 
@@ -30,7 +33,7 @@ def run(
     cpu=True,
     net="",
 ):
-
+    print(f"Style is {synch_metric}")
     # Check arguments
     synch_styles_excl_int_params = (
         synchrony_detection.SynchronyDetector.synch_styles_excl_int_params
@@ -85,8 +88,12 @@ def run(
 
     # Iterate over video frames
     frame_provider = input_handling.VideoReader(video)
-    for img in frame_provider:
-
+    for frame_idx, img in enumerate(
+        tqdm(frame_provider, desc="Frame processing")
+    ):
+        # for non-webcam input, only process every 30th frame
+        if video != "0" and frame_idx % 30 != 0:
+            continue
         # Attach input frame to output video
         if save_camera_input:
             output_handler_video_raw.build_outputs(img)
@@ -110,11 +117,15 @@ def run(
         # Calculate body distance
         distance_px = distance_calculator.calculate_distance(relevant_poses)
         heights = height_calculator.calculate_heights(relevant_poses)
-        distance = distance_calculator.normalize_distance(distance_px, heights)
+        distance, normalized_distance = distance_calculator.normalize_distance(
+            distance_px, heights
+        )
 
         # Attach to output table
         if save_output_table:
-            output_handler_table.build_outputs({**synchrony, **distance})
+            output_handler_table.build_outputs(
+                {**synchrony, **normalized_distance}
+            )
 
         # Generate video output with overlay
         if show_livestream or save_livestream:

@@ -97,12 +97,10 @@ class Visualizer:
             synch_vals_avail = [
                 val for val in self.synchrony.values() if val != -1
             ]
-            print(self.synchrony.values())
-            print(synch_vals_avail)
             synch_mean = (
                 mean(synch_vals_avail) if len(synch_vals_avail) != 0 else False
             )
-            dist_temp = list(self.distance.values())[0]
+            dist_temp = self.distance
             text_dist = np.nan if dist_temp == -1 else f"{dist_temp:.1f}px"
             text_synch = np.nan if synch_mean is False else f"{synch_mean:.1f}"
             overlay_text = f"Avg synch: {text_synch}; Dist: {text_dist}"

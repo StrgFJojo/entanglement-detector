@@ -1,5 +1,3 @@
-from typing import List
-
 import cv2
 import pandas as pd
 
@@ -13,8 +11,6 @@ class OutputHandler:
     def __init__(
         self,
         output_type: str,
-        table_data: List[float],
-        frame_data,
         file_name: str,
     ):
         if output_type not in ["video", "table"]:
@@ -46,7 +42,7 @@ class OutputHandler:
             fps = 30  # int(iterable.cap.get(cv2.CAP_PROP_FPS))
             fourcc = cv2.VideoWriter_fourcc(*"MJPG")
             self.video_writer = cv2.VideoWriter(
-                self.output_path, fourcc, fps, (frame_width, frame_height)
+                self.file_name, fourcc, fps, (frame_width, frame_height)
             )
             self.setup_done = True
         self.video_writer.write(frame)
@@ -54,9 +50,7 @@ class OutputHandler:
     def release_outputs(self):
         if self.output_type == "table":
             self.table_writer = pd.DataFrame(self.table_writer)
-            self.table_writer.to_csv(
-                self.output_path, index=True, index_label="frame_idx"
-            )
+            self.table_writer.to_csv(self.file_name, index=False)
             self.setup_done = False
         elif self.output_type == "video":
             self.video_writer.release()

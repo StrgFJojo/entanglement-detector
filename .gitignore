@@ -1,6 +1,8 @@
 .idea/
 .DS_Store
 olympics
+brick_experiments
+brick_experiments/**
 models/checkpoint_iter_370000.pth
 models/pose_deploy_linevec.prototxt
 models/pose_iter_440000.caffemodel

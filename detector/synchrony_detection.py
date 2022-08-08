@@ -41,7 +41,9 @@ class SynchronyDetector:
     def calculate_synchrony(self, poses):
         synch_scores = -1 * np.ones(17)
         if poses is None or len(poses) < 2:
-            self.synchrony.append(dict(zip(self.column_names, synch_scores)))
+            synch_dict = dict(zip(self.column_names, synch_scores))
+            self.synchrony.append(synch_dict)
+            return synch_dict
         else:
             for bodypart_idx, keypoint_pair in enumerate(
                 PoseEstimator.skeleton_keypoint_pairs

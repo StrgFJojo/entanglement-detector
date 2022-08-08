@@ -16,7 +16,7 @@ class DistanceCalculator:
         self.normalized_distance = []
 
     def calculate_distance(self, poses):
-        if poses is None:
+        if poses is None or len(poses) < 2:
             distance = -1
         else:
             center_points = []
@@ -61,4 +61,4 @@ class DistanceCalculator:
                 {"normalized_distance": (distance / sum(heights))}
             )
         self.normalized_distance.append(normalized_distance)
-        return normalized_distance
+        return distance, normalized_distance
