@@ -54,4 +54,4 @@ class OutputHandler:
             self.setup_done = False
         elif self.output_type == "video":
             self.video_writer.release()
-            self.setup_done = False
+            # self.setup_done = False

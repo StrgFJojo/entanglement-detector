@@ -47,7 +47,7 @@ class Visualizer:
 
     def define_skeleton_color(self, pose, key, value):
         # condition 1
-        bodypart_synch_score_available = value != -1
+        bodypart_synch_score_available = value != np.nan
         # condition 2
         color_should_be_mirrored = (
             self.synch_metric in SynchronyDetector.synch_styles_mirrored
@@ -95,7 +95,7 @@ class Visualizer:
             )
         else:
             synch_vals_avail = [
-                val for val in self.synchrony.values() if val != -1
+                val for val in self.synchrony.values() if val != np.nan
             ]
             synch_mean = (
                 mean(synch_vals_avail) if len(synch_vals_avail) != 0 else False
