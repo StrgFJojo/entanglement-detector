@@ -7,7 +7,6 @@ Go to project folder /entanglement_detector and...
 source venv/bin/activate
 ~~~
 2. [Download pose estimation checkpoint](https://download.01.org/opencv/openvino_training_extensions/models/human_pose_estimation/checkpoint_iter_370000.pth) from the project [OpenPose Lightweight](https://github.com/Daniil-Osokin/lightweight-human-pose-estimation.pytorch)
-~~~
 
 ## Instructions
 To run the Entanglement Detector from your console, use the following below.
