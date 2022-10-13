@@ -35,5 +35,5 @@ Like "2 pax, 180 degrees" with the difference that mirrored body parts are compa
 ### allpax
 Takes into account all persons detected by the pose estimation model. Synchronization is the normalized summed difference from the average directional vector over all persons (by body part).
 
-### x, where x is an integer you choase
+### x, where x is an integer you choose
 Takes the x most prominent people into account - or the total number of detected people if x > total number of people. Synchronization is the normalized summed difference from the average directional vector over all persons (by body part).
