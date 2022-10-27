@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
-from detector import pose_estimation, synchrony_detection
+from detector import pose_estimation
 from detector.synchrony_detection import SynchronyDetector
 
 
@@ -18,13 +18,13 @@ class Visualizer:
         self.distance = None
 
     def setup(
-        self, img, poses, relevant_poses, synchrony, synch_style, distance
+        self, img, poses, relevant_poses, synchrony, synch_metric, distance
     ):
         self.img = img
         self.poses = poses
         self.relevant_poses = relevant_poses
         self.synchrony = synchrony
-        self.synch_metric = synch_style
+        self.synch_metric = synch_metric
         self.distance = distance
 
     def draw_bounding_boxes(self, track):
@@ -47,17 +47,17 @@ class Visualizer:
 
     def define_skeleton_color(self, pose, key, value):
         # condition 1
-        bodypart_synch_score_available = value != np.nan
+        bodypart_synch_score_available = ~np.isnan(value)
         # condition 2
         color_should_be_mirrored = (
-            self.synch_metric in SynchronyDetector.synch_styles_mirrored
-            and pose == self.relevant_poses[1]
+            self.synch_metric in ["pos", "los"]
+            and pose in self.relevant_poses[1:]
         )
 
         if not bodypart_synch_score_available:
             color = [0, 0, 0]
         elif color_should_be_mirrored:
-            mirror_key = synchrony_detection.get_mirror_key(key)
+            mirror_key = SynchronyDetector.get_mirror_key(key)
             color = [
                 0,
                 min(255, 2 * 255 * self.synchrony.get(mirror_key)),

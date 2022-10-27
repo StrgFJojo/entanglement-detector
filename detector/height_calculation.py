@@ -40,7 +40,7 @@ class HeightCalculator:
                 keypoint1 = pose.keypoints[keypoint_pair[0]]
                 keypoint2 = pose.keypoints[keypoint_pair[1]]
                 if -1 in keypoint1 or -1 in keypoint2:
-                    break  # continue with next calc route
+                    break  # keypoint missing, continue with next calc route
                 height += euclidean(keypoint1, keypoint2)
                 if keypoint_pair_idx == len(calc_route) - 1:
                     return height

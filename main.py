@@ -20,37 +20,43 @@ from modules.load_state import load_state
 warnings.filterwarnings("ignore")
 
 
-# jojo 1.0 incoming
-
-
 def run(
     video="",
     show_livestream=True,
     save_livestream=False,
     save_output_table=False,
     save_camera_input=False,
-    synch_metric="2pax_90",
+    synch_metric="pss",
     cpu=True,
     net="",
+    group_size="all",
+    frame_skip=1,
 ):
-    print(f"Style is {synch_metric}")
-    # Check arguments
-    synch_styles_excl_int_params = (
-        synchrony_detection.SynchronyDetector.synch_styles_excl_int_params
-    )
-    if video == "":
-        raise ValueError("-video has to be provided")
-    if net == "":
-        raise ValueError("-checkpoint-path has to be provided")
-    if synch_metric not in synch_styles_excl_int_params:
-        try:
-            int(synch_metric)
-        except ValueError:
-            print(
-                f"{synch_metric}is not a valid input for argument synch_style"
-            )
-            exit(1)
 
+    # Check arguments
+    if video == "":
+        raise ValueError("--video has to be provided")
+    if net == "":
+        raise ValueError("--checkpoint-path has to be provided")
+    if synch_metric not in ["pss", "pos", "lss", "los"]:
+        raise ValueError(
+            f"{synch_metric} not a valid argument for synch_metric"
+        )
+    if frame_skip < 1 or not isinstance(frame_skip, int):
+        raise ValueError("--frame-skip needs to be a positive integer")
+    if group_size != "all" and group_size < 2:
+        raise ValueError("--group-size needs to be an integer >= 2 or 'all'")
+
+    print(
+        f"System setup starting! "
+        f"Synch metric: {synch_metric}, "
+        f"Group size: {group_size}"
+    )
+
+    # Setup input handling
+    frame_provider = input_handling.VideoReader(video)
+
+    # Setup pose estimation
     height_size = 256
     stride = 8
     upsample_ratio = 4
@@ -63,7 +69,7 @@ def run(
         net, height_size, stride, upsample_ratio, cpu
     )
 
-    # Setup entanglement detection
+    # Setup synchronization detection
     synch_detector = synchrony_detection.SynchronyDetector(synch_metric)
     distance_calculator = distance_calculation.DistanceCalculator()
     height_calculator = height_calculation.HeightCalculator()
@@ -72,28 +78,41 @@ def run(
     delay = 1
     if save_livestream:
         output_handler_video = output_creation.OutputHandler(
-            output_type="video", file_name="output_video.avi"
+            output_type="video",
+            file_name="output_video.avi",
+            fps=frame_provider.fps,
         )
     if save_camera_input:
         output_handler_video_raw = output_creation.OutputHandler(
-            output_type="video", file_name="input_video.avi"
+            output_type="video",
+            file_name="input_video.avi",
+            fps=frame_provider.fps,
         )
     if save_output_table:
         output_handler_table = output_creation.OutputHandler(
-            output_type="table", file_name="output_table.csv"
+            output_type="table", file_name="output_table.csv", fps=None
         )
 
     # Setup visualization
     visualizer = visualization.Visualizer()
+    print("Setup finished.")
+    # Frame analysis
+    print(
+        "Starting frame analysis. "
+        "To interrupt analysis, press 'esc' in the livestream window."
+    )
 
-    # Iterate over video frames
-    frame_provider = input_handling.VideoReader(video)
     for frame_idx, img in enumerate(
-        tqdm(frame_provider, desc="Frame processing")
+        tqdm(
+            frame_provider,
+            desc="Frame processing",
+            total=frame_provider.total_frames,
+        )
     ):
-        # for non-webcam input, only process every 30th frame
-        if video != "0" and frame_idx % 30 != 0:
+        # For non-webcam input, skip frames if desired
+        if video != "0" and frame_idx % frame_skip != 0:
             continue
+
         # Attach input frame to output video
         if save_camera_input:
             output_handler_video_raw.build_outputs(img)
@@ -109,7 +128,9 @@ def run(
             previous_poses = all_poses
 
         # Get poses relevant for entanglement detection
-        relevant_poses = synch_detector.get_relevant_poses(all_poses)
+        relevant_poses = synch_detector.get_relevant_poses(
+            all_poses, group_size
+        )
 
         # Calculate body synchronization
         synchrony = synch_detector.calculate_synchrony(relevant_poses)
@@ -149,13 +170,10 @@ def run(
 
         # Display illustrated frame
         if show_livestream:
-            cv2.imshow("Synch Detector", visualizer.img)
+            cv2.imshow("Synch Detector", img)
             key = cv2.waitKey(delay)
             if key == 27:  # esc
-                cv2.destroyAllWindows()
-                for i in range(1, 5):
-                    cv2.waitKey(1)
-                    break
+                break
             elif key == 112:  # 'p'
                 if delay == 1:
                     delay = 0
@@ -167,6 +185,7 @@ def run(
             output_handler_video.build_outputs(visualizer.img)
 
     # Iteration over frames finished (No frames left or keyboard interrupt)
+    print("Frame analysis stopped. Closing files. Releasing outputs.")
     # Release resources
     if save_livestream:
         output_handler_video.release_outputs()
@@ -179,6 +198,7 @@ def run(
 
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser(description="")
     parser.add_argument(
         "--video", type=str, default="", help="path to video file or camera id"
@@ -196,12 +216,19 @@ if __name__ == "__main__":
         "--save-camera-input", default=False, help="save input from camera"
     )
     parser.add_argument(
-        "--synch-metric", default="2pax_90", help="synchrony metric to be used"
+        "--synch-metric", default="pss", help="synchrony metric to be used"
+    )
+    parser.add_argument("--cpu", default=True, help="run inference on cpu")
+    parser.add_argument("--checkpoint-path", default="", type=str)
+    parser.add_argument(
+        "--group-size",
+        default="all",
+        help="number of people for synch detection",
     )
     parser.add_argument(
-        "--cpu", action="store_true", help="run inference on cpu"
+        "--frame-skip", default=1, help="only every i-th frame gets analyzed"
     )
-    parser.add_argument("--checkpoint-path", default="", type=str)
+
     args = parser.parse_args()
 
     # Setup pose estimation with OpenPose Lightweight
@@ -209,6 +236,7 @@ if __name__ == "__main__":
     checkpoint = torch.load(args.checkpoint_path, map_location="cpu")
     load_state(net, checkpoint)
     net = net.eval()
+
     run(
         args.video,
         args.show_livestream,
@@ -218,6 +246,8 @@ if __name__ == "__main__":
         args.synch_metric,
         args.cpu,
         net,
+        args.group_size,
+        args.frame_skip,
     )
 
     exit()

@@ -5,6 +5,12 @@ import numpy as np
 
 from detector.pose_estimation import Pose, PoseEstimator
 
+column_names = [
+    f"synch_{Pose.kpt_names[keypoint_pair[0]]}"
+    f"_to_{Pose.kpt_names[keypoint_pair[1]]}"
+    for keypoint_pair in PoseEstimator.skeleton_keypoint_pairs
+]
+
 
 class SynchronyDetector:
     """
@@ -12,67 +18,54 @@ class SynchronyDetector:
     the individual body parts according to the specified synch metric.
     """
 
-    synch_styles_mirrored = ["2pax_90_mirrored", "2pax_180_mirrored"]
-    synch_styles_2persons = [
-        "2pax_90",
-        "2pax_180",
-        "2pax_90_mirrored",
-        "2pax_180_mirrored",
-    ]
-    synch_styles_90 = ["2pax_90", "2pax_90_mirrored"]
-    synch_styles_excl_int_params = [
-        "2pax_90",
-        "2pax_180",
-        "2pax_90_mirrored",
-        "2pax_180_mirrored",
-        "allpax",
-    ]
-
-    def __init__(self, synch_style: str):
-        self.synch_style = synch_style
+    def __init__(self, synch_metric: str):
+        self.synch_metric = synch_metric
         self.synchrony = []
-        self.column_names = [
-            f"synchrony_{Pose.kpt_names[keypoint_pair[0]]}"
-            f"_to_{Pose.kpt_names[keypoint_pair[1]]}"
-            for keypoint_pair in PoseEstimator.skeleton_keypoint_pairs
-        ]
 
     def calculate_synchrony(self, poses):
         synch_scores = np.nan * np.empty(17)
+        # return empty list if there is less than two bodies
         if poses is None or len(poses) < 2:
-            synch_dict = dict(zip(self.column_names, synch_scores))
+            synch_dict = dict(zip(column_names, synch_scores))
             self.synchrony.append(synch_dict)
             return synch_dict
-        else:
-            for bodypart_idx, keypoint_pair in enumerate(
-                PoseEstimator.skeleton_keypoint_pairs
-            ):
 
-                unit_vectors = np.nan * np.empty((len(poses), 2))
-
-                for person_idx, pose in enumerate(poses):
-                    keypoint1, keypoint2 = self.get_keypoints_of_bodypart(
-                        pose, person_idx, keypoint_pair, bodypart_idx
-                    )
-                    unit_vectors[person_idx] = self.keypoints_to_unit_vector(
-                        keypoint1, keypoint2
-                    )
-
-                if self.synch_style in self.synch_styles_2persons:
-                    if any(np.nan in vector for vector in unit_vectors):
-                        synch_scores[bodypart_idx] = np.nan
-                    else:
-                        deg = self.get_angle(unit_vectors[0], unit_vectors[1])
-                        synch_score = self.angle_to_synch_score(deg)
-                        synch_scores[bodypart_idx] = synch_score
-                else:
-                    synch_score = self.vector_diff_to_synch_score(unit_vectors)
-                    synch_scores[bodypart_idx] = synch_score
-
-                    # synch_scores = self.normalize_synch_scores(synch_scores)
-            synch_dict = dict(zip(self.column_names, synch_scores))
-            self.synchrony.append(synch_dict)
-            return synch_dict
+        # synchronization calculation if there is more than two bodies
+        for bodypart_idx, keypoint_pair in enumerate(
+            PoseEstimator.skeleton_keypoint_pairs
+        ):
+            angs = 0
+            count = 0
+            for pose_idx1, pose1 in enumerate(poses):
+                for pose_idx2, pose2 in enumerate(poses):
+                    if pose_idx2 > pose_idx1:
+                        unit_vectors = []
+                        for idx, pose in enumerate([pose1, pose2]):
+                            # get same- or opposite-side keypoints of body part
+                            kpt1, kpt2 = self.get_keypoints_of_bodypart(
+                                pose, idx, keypoint_pair, bodypart_idx
+                            )
+                            # transform keypoints to unit vectors
+                            unit_vectors.append(
+                                self.keypoints_to_unit_vector(kpt1, kpt2)
+                            )
+                        unit_vectors = [
+                            x for x in unit_vectors if np.nan not in x
+                        ]
+                        if len(unit_vectors) >= 2:
+                            angs += self.get_angle(
+                                unit_vectors[0], unit_vectors[1]
+                            )
+                            count += 1
+            if count == 0:
+                synch_score = np.nan
+            else:
+                avg_ang = angs / count
+                synch_score = self.angle_to_synch_score(avg_ang)
+            synch_scores[bodypart_idx] = synch_score
+        synch_dict = dict(zip(column_names, synch_scores))
+        self.synchrony.append(synch_dict)
+        return synch_dict
 
     @staticmethod
     def keypoints_to_unit_vector(keypoint1, keypoint2):
@@ -99,30 +92,17 @@ class SynchronyDetector:
         return deg
 
     def angle_to_synch_score(self, deg: float) -> float:
-        if self.synch_style in self.synch_styles_90:
+        if self.synch_metric in ["pss", "pos"]:
             if deg <= 90:
                 synch_score = 1 + ((0 - 1) / (90 - 0)) * (deg - 0)
             else:
                 synch_score = 0 + ((1 - 0) / (180 - 90)) * (deg - 90)
-        else:  # synch_style == '2pax_180'
+        else:  # self.synch_metric in ['lss', 'los']
             synch_score = 1 - deg / 180
         return synch_score
 
     def vector_diff_to_synch_score(self, unit_vectors):
         unit_vectors = [x for x in unit_vectors if np.nan not in x]
-        """
-        vector_sum = [0, 0]
-        for vec in unit_vectors:
-            vector_sum += vec
-        if len(unit_vectors) > 1:
-            avg_vec = [x / len(unit_vectors) for x in vector_sum]
-            dif_vectors_sum = 0
-            for j in range(len(unit_vectors)):
-                dif_vectors_sum += abs(unit_vectors[j] - avg_vec)
-            synch_score = mean(dif_vectors_sum/len(unit_vectors)) ** 1
-        else:
-            synch_score = np.nan
-        """
         if len(unit_vectors) < 2:
             synch_score = np.nan
         else:
@@ -137,24 +117,10 @@ class SynchronyDetector:
             synch_score = self.angle_to_synch_score(avg_ang)
         return synch_score
 
-    def normalize_synch_scores(self, synch_scores):
-        if (
-            self.synch_style not in self.synch_styles_2persons
-            and not np.isnan(synch_scores).all()
-        ):
-            synch_scores = [
-                (float(x) - min(synch_scores))
-                / (max(synch_scores) - min(synch_scores))
-                if not np.isnan(x)
-                else np.nan
-                for x in synch_scores
-            ]
-        return synch_scores
-
     def get_keypoints_of_bodypart(
         self, pose, person_idx, keypoint_pair, bodypart_idx
     ):
-        if self.synch_style in self.synch_styles_mirrored and person_idx == 1:
+        if self.synch_metric in ["pos", "los"] and person_idx == 1:
             keypoint1 = pose.keypoints[
                 PoseEstimator.skeleton_keypoint_pairs_mirrored[bodypart_idx][0]
             ]
@@ -166,19 +132,17 @@ class SynchronyDetector:
             keypoint2 = pose.keypoints[keypoint_pair[1]]
         return keypoint1, keypoint2
 
-    def get_relevant_poses(self, poses):
+    def get_relevant_poses(self, poses, group_size):
         if len(poses) < 2:
             relevant_poses = None
         else:
             conf_vals = []
             for pose in poses:
                 conf_vals.append(pose.confidence)
-            if self.synch_style in SynchronyDetector.synch_styles_2persons:
-                pax = 2
-            elif self.synch_style == "allpax":
+            if group_size == "all":
                 pax = len(poses)
             else:
-                pax = int(self.synch_style)
+                pax = int(group_size)
             relevant_poses_idx = (-np.array(conf_vals)).argsort()[:pax]
             relevant_poses = [
                 pose
@@ -187,7 +151,8 @@ class SynchronyDetector:
             ]
         return relevant_poses
 
-    def get_mirror_key(self, dict_key):
-        org_idx = self.column_names.index(dict_key)
+    @staticmethod
+    def get_mirror_key(dict_key):
+        org_idx = column_names.index(dict_key)
         mirror_idx = PoseEstimator.idx_mirror_pose_pair[org_idx]
-        return self.column_names[mirror_idx]
+        return column_names[mirror_idx]

@@ -331,7 +331,7 @@ def get_poses(frame, net, index, i):
     # and scaling
     # image, scalefactor, size the net expects, mean
     # (vals subtracted from every channel of the image)
-    # OpenCV assumes images are in BGR channel order;
+    # OpenCV assumes images_1person are in BGR channel order;
     # however `mean` value assumes we are using RGB order
     # Swap not necessary as mean set to 0
     inpBlob = cv2.dnn.blobFromImage(

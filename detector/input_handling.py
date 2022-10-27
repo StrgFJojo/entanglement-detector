@@ -28,8 +28,13 @@ class VideoReader(object):
         self.file_name = file_name
         try:  # OpenCV needs int to read from webcam
             self.file_name = int(file_name)
+            self.fps = 30
+            self.total_frames = None
         except ValueError:
-            pass
+            self.fps = cv2.VideoCapture(self.file_name).get(cv2.CAP_PROP_FPS)
+            self.total_frames = int(
+                cv2.VideoCapture(self.file_name).get(cv2.CAP_PROP_FRAME_COUNT)
+            )
 
     def __iter__(self):
         self.cap = cv2.VideoCapture(self.file_name)

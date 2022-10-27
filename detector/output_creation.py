@@ -8,17 +8,14 @@ class OutputHandler:
     to save them.
     """
 
-    def __init__(
-        self,
-        output_type: str,
-        file_name: str,
-    ):
+    def __init__(self, output_type: str, file_name: str, fps):
         if output_type not in ["video", "table"]:
             raise ValueError(
                 "Invalid argument. " "Output_type must be 'video' or 'table'."
             )
         self.output_type = output_type
         self.file_name = file_name
+        self.fps = fps
         self.table_writer = None
         self.video_writer = None
         self.setup_done = False
@@ -39,10 +36,9 @@ class OutputHandler:
         if self.setup_done is False:  # first iteration
             frame_width = frame.shape[0]
             frame_height = frame.shape[1]
-            fps = 30  # int(iterable.cap.get(cv2.CAP_PROP_FPS))
-            fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+            fourcc = cv2.VideoWriter_fourcc("M", "J", "P", "G")
             self.video_writer = cv2.VideoWriter(
-                self.file_name, fourcc, fps, (frame_width, frame_height)
+                self.file_name, fourcc, self.fps, (frame_height, frame_width)
             )
             self.setup_done = True
         self.video_writer.write(frame)
