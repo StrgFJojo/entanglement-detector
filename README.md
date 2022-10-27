@@ -129,7 +129,7 @@ usage if the GPU is compatible with
 
 `--frame-skip`[Default: 1]\
 Specifies that only every `--frame-skip`-th frame shall be analyzed.
-Set to `1` be default, which means that every frame gets analyzed.
+Set to `1` by default, which means that every frame gets analyzed.
 Can be used to speed up analysis.
 
 
